@@ -28,46 +28,49 @@
             <p>Risk Intelligence Platform</p>
         </div>
 
-        <nav class="sidebar-menu">
-            <a
-                href="{{ route('dashboard') }}"
-                class="active"
-            >
-                Dashboard
-            </a>
+<nav class="sidebar-menu">
+    <a
+        href="{{ route('dashboard') }}"
+        class="{{ request()->routeIs('dashboard') ? 'active' : '' }}"
+    >
+        Dashboard
+    </a>
 
-            <a href="#">
-                Country Intelligence
-            </a>
+    <a
+        href="{{ route('countries.index') }}"
+        class="{{ request()->routeIs('countries.*') ? 'active' : '' }}"
+    >
+        Country Intelligence
+    </a>
 
-            <a href="#">
-                Global Weather
-            </a>
+    <a href="#">
+        Global Weather
+    </a>
 
-            <a href="#">
-                Currency Impact
-            </a>
+    <a href="#">
+        Currency Impact
+    </a>
 
-            <a href="#">
-                News Intelligence
-            </a>
+    <a href="#">
+        News Intelligence
+    </a>
 
-            <a href="#">
-                Port Monitoring
-            </a>
+    <a href="#">
+        Port Monitoring
+    </a>
 
-            <a href="#">
-                Country Comparison
-            </a>
+    <a href="#">
+        Country Comparison
+    </a>
 
-            <a href="#">
-                Watchlist
-            </a>
+    <a href="#">
+        Watchlist
+    </a>
 
-            <a href="#">
-                Admin
-            </a>
-        </nav>
+    <a href="#">
+        Admin
+    </a>
+</nav>
     </aside>
 
     <main class="main-content">
