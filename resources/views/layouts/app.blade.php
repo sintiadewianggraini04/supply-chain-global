@@ -43,19 +43,31 @@
         Country Intelligence
     </a>
 
-    <a href="#">
-        Global Weather
-    </a>
+    <a
+    href="{{ route('weather.index') }}"
+    class="{{ request()->routeIs('weather.*') ? 'active' : '' }}"
+>
+    Global Weather
+</a>
 
-    <a href="#">
+    <a
+        href="{{ route('currency.index') }}"
+        class="{{ request()->routeIs('currency.*') ? 'active' : '' }}"
+    >
         Currency Impact
     </a>
 
-    <a href="#">
+    <a
+        href="{{ route('news.index') }}"
+        class="{{ request()->routeIs('news.*') ? 'active' : '' }}"
+    >
         News Intelligence
     </a>
 
-    <a href="#">
+    <a
+        href="{{ route('ports.index') }}"
+        class="{{ request()->routeIs('ports.*') ? 'active' : '' }}"
+    >
         Port Monitoring
     </a>
 
