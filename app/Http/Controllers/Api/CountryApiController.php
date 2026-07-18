@@ -11,25 +11,65 @@ class CountryApiController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $countries = Country::query()
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $search = $request->string('search');
+        $limit = max(
+            1,
+            min(
+                (int) $request->input('limit', 100),
+                300
+            )
+        );
 
-                $query->where(function ($subQuery) use ($search) {
-                    $subQuery
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('official_name', 'like', "%{$search}%")
-                        ->orWhere('cca2', 'like', "%{$search}%")
-                        ->orWhere('cca3', 'like', "%{$search}%")
-                        ->orWhere('capital', 'like', "%{$search}%");
-                });
-            })
-            ->when($request->filled('region'), function ($query) use ($request) {
-                $query->where('region', $request->string('region'));
-            })
-            ->orderBy('name')
-            ->limit((int) $request->input('limit', 100))
-            ->get([
+        $countries = Country::query()
+            ->when(
+                $request->filled('search'),
+                function ($query) use ($request) {
+                    $search = trim(
+                        (string) $request->input('search')
+                    );
+
+                    $query->where(
+                        function ($subQuery) use ($search) {
+                            $subQuery
+                                ->where(
+                                    'name',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'official_name',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'cca2',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'cca3',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'capital',
+                                    'like',
+                                    "%{$search}%"
+                                );
+                        }
+                    );
+                }
+            )
+            ->when(
+                $request->filled('region'),
+                function ($query) use ($request) {
+                    $query->where(
+                        'region',
+                        (string) $request->input('region')
+                    );
+                }
+            )
+            ->where('is_active', true)
+            ->select([
                 'id',
                 'name',
                 'official_name',
@@ -45,11 +85,16 @@ class CountryApiController extends Controller
                 'latitude',
                 'longitude',
                 'flag_url',
-            ]);
+            ])
+            ->withExists('favorite')
+            ->orderBy('name')
+            ->limit($limit)
+            ->get();
 
         return response()->json([
             'success' => true,
-            'message' => 'Countries retrieved successfully.',
+            'message' =>
+                'Countries retrieved successfully.',
             'data' => $countries,
             'meta' => [
                 'count' => $countries->count(),

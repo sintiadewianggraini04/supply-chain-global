@@ -8,28 +8,70 @@ use Throwable;
 
 class SyncNews extends Command
 {
-    protected $signature = 'news:sync {query?}';
+    protected $signature = 'news:sync
+                            {query? : Query khusus opsional}
+                            {--category=custom : Kategori untuk query khusus}';
 
-    protected $description = 'Mengambil berita supply chain dari GNews API';
+    protected $description =
+        'Mengambil berita global dari GNews API berdasarkan kategori';
 
     public function handle(GNewsService $service): int
     {
         $query = $this->argument('query');
 
-        $this->info('Memulai sinkronisasi berita...');
+        $category = (string) $this->option('category');
+
+        $this->info('Memulai sinkronisasi berita global...');
 
         try {
-            $total = $service->sync($query);
+            $result = $service->sync(
+                $query ? (string) $query : null,
+                $category
+            );
 
             $this->newLine();
 
-            $this->info("Sinkronisasi selesai. {$total} berita diproses.");
+            $rows = [];
+
+            foreach ($result['categories'] as $categoryName => $total) {
+                $rows[] = [
+                    ucfirst($categoryName),
+                    $total,
+                ];
+            }
+
+            if ($rows !== []) {
+                $this->table(
+                    ['Kategori', 'Artikel Diproses'],
+                    $rows
+                );
+            }
+
+            if ($result['errors'] !== []) {
+                $this->newLine();
+
+                foreach ($result['errors'] as $categoryName => $message) {
+                    $this->warn(
+                        "{$categoryName}: {$message}"
+                    );
+                }
+            }
+
+            $this->newLine();
+
+            $this->info(
+                "Sinkronisasi selesai. "
+                . "{$result['processed']} berita unik diproses."
+            );
 
             return self::SUCCESS;
         } catch (Throwable $exception) {
             $this->newLine();
 
-            $this->error('Sinkronisasi gagal: ' . $exception->getMessage());
+            $this->error(
+                'Sinkronisasi gagal: '
+                . $exception->getMessage()
+            );
 
             return self::FAILURE;
         }

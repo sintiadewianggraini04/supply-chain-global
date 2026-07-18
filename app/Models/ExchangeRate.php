@@ -22,7 +22,7 @@ class ExchangeRate extends Model
     protected function casts(): array
     {
         return [
-            'rate' => 'decimal:8',
+            'rate' => 'decimal:10',
             'rate_date' => 'date',
             'fetched_at' => 'datetime',
             'raw_response' => 'array',

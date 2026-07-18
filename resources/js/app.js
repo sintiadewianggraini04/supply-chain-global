@@ -13,4 +13,6 @@ import L from 'leaflet';
 window.Chart = Chart;
 window.L = L;
 
-console.log('Global Supply Chain dashboard loaded');
+console.log(
+    'Global Supply Chain dashboard loaded'
+);

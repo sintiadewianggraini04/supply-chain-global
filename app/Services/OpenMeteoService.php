@@ -7,18 +7,104 @@ use RuntimeException;
 
 class OpenMeteoService
 {
-    private const API_URL = 'https://api.open-meteo.com/v1/forecast';
+    private const API_URL =
+        'https://api.open-meteo.com/v1/forecast';
 
     public function getForecast(
         float $latitude,
         float $longitude
     ): array {
-        $response = Http::acceptJson()
-            ->timeout(20)
-            ->retry(2, 500)
-            ->get(self::API_URL, [
+        $results = $this->getForecasts([
+            [
+                'key' => 'location',
                 'latitude' => $latitude,
                 'longitude' => $longitude,
+            ],
+        ]);
+
+        if (! isset($results['location'])) {
+            throw new RuntimeException(
+                'Data cuaca tidak tersedia.'
+            );
+        }
+
+        return $results['location'];
+    }
+
+    public function getForecasts(
+        array $locations
+    ): array {
+        if ($locations === []) {
+            return [];
+        }
+
+        $normalizedLocations = [];
+
+        foreach (
+            $locations as $index => $location
+        ) {
+            $latitude =
+                $location['latitude'] ?? null;
+
+            $longitude =
+                $location['longitude'] ?? null;
+
+            if (
+                ! is_numeric($latitude)
+                || ! is_numeric($longitude)
+            ) {
+                throw new RuntimeException(
+                    'Koordinat lokasi tidak valid.'
+                );
+            }
+
+            $latitude = (float) $latitude;
+            $longitude = (float) $longitude;
+
+            if (
+                $latitude < -90
+                || $latitude > 90
+                || $longitude < -180
+                || $longitude > 180
+            ) {
+                throw new RuntimeException(
+                    'Koordinat lokasi berada di luar batas.'
+                );
+            }
+
+            $normalizedLocations[] = [
+                'key' => (string) (
+                    $location['key']
+                    ?? $index
+                ),
+
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+            ];
+        }
+
+        $latitudes = implode(
+            ',',
+            array_column(
+                $normalizedLocations,
+                'latitude'
+            )
+        );
+
+        $longitudes = implode(
+            ',',
+            array_column(
+                $normalizedLocations,
+                'longitude'
+            )
+        );
+
+        $response = Http::acceptJson()
+            ->connectTimeout(4)
+            ->timeout(12)
+            ->get(self::API_URL, [
+                'latitude' => $latitudes,
+                'longitude' => $longitudes,
 
                 'current' => implode(',', [
                     'temperature_2m',
@@ -42,143 +128,238 @@ class OpenMeteoService
                     'wind_gusts_10m_max',
                 ]),
 
-                'temperature_unit' => 'celsius',
-                'wind_speed_unit' => 'kmh',
-                'precipitation_unit' => 'mm',
+                'temperature_unit' =>
+                    'celsius',
+
+                'wind_speed_unit' =>
+                    'kmh',
+
+                'precipitation_unit' =>
+                    'mm',
+
                 'timezone' => 'auto',
                 'forecast_days' => 7,
             ]);
 
         $response->throw();
 
-        $data = $response->json();
+        $payload = $response->json();
+
+        /*
+         * Satu lokasi menghasilkan object.
+         * Beberapa lokasi menghasilkan array object.
+         */
+        if (
+            count($normalizedLocations) === 1
+            && is_array($payload)
+            && isset($payload['current'])
+        ) {
+            $payload = [$payload];
+        }
 
         if (
-            ! is_array($data)
-            || ! isset($data['current'])
-            || ! isset($data['daily'])
+            ! is_array($payload)
+            || ! array_is_list($payload)
         ) {
             throw new RuntimeException(
                 'Format respons Open-Meteo tidak sesuai.'
             );
         }
 
-        return $this->formatResponse($data);
+        $results = [];
+
+        foreach (
+            $normalizedLocations as $index => $location
+        ) {
+            $weatherData =
+                $payload[$index] ?? null;
+
+            if (
+                ! is_array($weatherData)
+                || ! isset($weatherData['current'])
+                || ! isset($weatherData['daily'])
+            ) {
+                continue;
+            }
+
+            $results[$location['key']] =
+                $this->formatResponse(
+                    $weatherData
+                );
+        }
+
+        return $results;
     }
 
-    private function formatResponse(array $data): array
-    {
-        $currentWeatherCode = $this->toInteger(
-            data_get($data, 'current.weather_code')
-        );
-
-        $current = [
-            'time' => data_get($data, 'current.time'),
-
-            'temperature' => $this->toNumber(
-                data_get($data, 'current.temperature_2m')
-            ),
-
-            'apparent_temperature' => $this->toNumber(
-                data_get($data, 'current.apparent_temperature')
-            ),
-
-            'humidity' => $this->toNumber(
+    private function formatResponse(
+        array $data
+    ): array {
+        $currentWeatherCode =
+            $this->toInteger(
                 data_get(
                     $data,
-                    'current.relative_humidity_2m'
+                    'current.weather_code'
                 )
+            );
+
+        $current = [
+            'time' => data_get(
+                $data,
+                'current.time'
             ),
 
-            'precipitation' => $this->toNumber(
-                data_get($data, 'current.precipitation')
-            ),
+            'temperature' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.temperature_2m'
+                    )
+                ),
 
-            'rain' => $this->toNumber(
-                data_get($data, 'current.rain')
-            ),
+            'apparent_temperature' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.apparent_temperature'
+                    )
+                ),
 
-            'cloud_cover' => $this->toNumber(
-                data_get($data, 'current.cloud_cover')
-            ),
+            'humidity' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.relative_humidity_2m'
+                    )
+                ),
 
-            'wind_speed' => $this->toNumber(
-                data_get($data, 'current.wind_speed_10m')
-            ),
+            'precipitation' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.precipitation'
+                    )
+                ),
 
-            'wind_gusts' => $this->toNumber(
-                data_get($data, 'current.wind_gusts_10m')
-            ),
+            'rain' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.rain'
+                    )
+                ),
 
-            'weather_code' => $currentWeatherCode,
+            'cloud_cover' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.cloud_cover'
+                    )
+                ),
 
-            'description' => $this->weatherDescription(
-                $currentWeatherCode
-            ),
+            'wind_speed' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.wind_speed_10m'
+                    )
+                ),
+
+            'wind_gusts' =>
+                $this->toNumber(
+                    data_get(
+                        $data,
+                        'current.wind_gusts_10m'
+                    )
+                ),
+
+            'weather_code' =>
+                $currentWeatherCode,
+
+            'description' =>
+                $this->weatherDescription(
+                    $currentWeatherCode
+                ),
         ];
 
         $forecast = [];
 
-        $dates = data_get($data, 'daily.time', []);
+        $dates = data_get(
+            $data,
+            'daily.time',
+            []
+        );
+
+        if (! is_array($dates)) {
+            $dates = [];
+        }
 
         foreach ($dates as $index => $date) {
-            $weatherCode = $this->toInteger(
-                data_get(
-                    $data,
-                    "daily.weather_code.$index"
-                )
-            );
+            $weatherCode =
+                $this->toInteger(
+                    data_get(
+                        $data,
+                        "daily.weather_code.$index"
+                    )
+                );
 
             $forecast[] = [
                 'date' => $date,
 
-                'weather_code' => $weatherCode,
+                'weather_code' =>
+                    $weatherCode,
 
-                'description' => $this->weatherDescription(
-                    $weatherCode
-                ),
+                'description' =>
+                    $this->weatherDescription(
+                        $weatherCode
+                    ),
 
-                'temperature_max' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.temperature_2m_max.$index"
-                    )
-                ),
+                'temperature_max' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.temperature_2m_max.$index"
+                        )
+                    ),
 
-                'temperature_min' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.temperature_2m_min.$index"
-                    )
-                ),
+                'temperature_min' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.temperature_2m_min.$index"
+                        )
+                    ),
 
-                'precipitation_sum' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.precipitation_sum.$index"
-                    )
-                ),
+                'precipitation_sum' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.precipitation_sum.$index"
+                        )
+                    ),
 
-                'precipitation_probability' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.precipitation_probability_max.$index"
-                    )
-                ),
+                'precipitation_probability' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.precipitation_probability_max.$index"
+                        )
+                    ),
 
-                'wind_speed_max' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.wind_speed_10m_max.$index"
-                    )
-                ),
+                'wind_speed_max' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.wind_speed_10m_max.$index"
+                        )
+                    ),
 
-                'wind_gusts_max' => $this->toNumber(
-                    data_get(
-                        $data,
-                        "daily.wind_gusts_10m_max.$index"
-                    )
-                ),
+                'wind_gusts_max' =>
+                    $this->toNumber(
+                        data_get(
+                            $data,
+                            "daily.wind_gusts_10m_max.$index"
+                        )
+                    ),
             ];
         }
 
@@ -189,11 +370,12 @@ class OpenMeteoService
                 'UTC'
             ),
 
-            'timezone_abbreviation' => data_get(
-                $data,
-                'timezone_abbreviation',
-                'UTC'
-            ),
+            'timezone_abbreviation' =>
+                data_get(
+                    $data,
+                    'timezone_abbreviation',
+                    'UTC'
+                ),
 
             'current' => $current,
 
@@ -237,13 +419,27 @@ class OpenMeteoService
         }
 
         $windSpeed = max(
-            (float) ($today['wind_speed_max'] ?? 0),
-            (float) ($current['wind_speed'] ?? 0)
+            (float) (
+                $today['wind_speed_max']
+                ?? 0
+            ),
+
+            (float) (
+                $current['wind_speed']
+                ?? 0
+            )
         );
 
         $windGusts = max(
-            (float) ($today['wind_gusts_max'] ?? 0),
-            (float) ($current['wind_gusts'] ?? 0)
+            (float) (
+                $today['wind_gusts_max']
+                ?? 0
+            ),
+
+            (float) (
+                $current['wind_gusts']
+                ?? 0
+            )
         );
 
         $strongestWind = max(
@@ -299,7 +495,16 @@ class OpenMeteoService
         } elseif (
             in_array(
                 $weatherCode,
-                [61, 63, 66, 71, 73, 80, 81, 85],
+                [
+                    61,
+                    63,
+                    66,
+                    71,
+                    73,
+                    80,
+                    81,
+                    85,
+                ],
                 true
             )
         ) {
@@ -309,11 +514,13 @@ class OpenMeteoService
                 'Terdapat indikator cuaca kurang stabil.';
         }
 
-        $maximumTemperature = $today['temperature_max']
+        $maximumTemperature =
+            $today['temperature_max']
             ?? $current['temperature']
             ?? null;
 
-        $minimumTemperature = $today['temperature_min']
+        $minimumTemperature =
+            $today['temperature_min']
             ?? $current['temperature']
             ?? null;
 
@@ -350,7 +557,7 @@ class OpenMeteoService
             $label = 'High Risk';
         }
 
-        if (count($factors) === 0) {
+        if ($factors === []) {
             $factors[] =
                 'Tidak ada indikator cuaca ekstrem yang dominan.';
         }
@@ -411,9 +618,11 @@ class OpenMeteoService
 
             95 => 'Badai petir',
 
-            96, 99 => 'Badai petir dengan hujan es',
+            96, 99 =>
+                'Badai petir dengan hujan es',
 
-            default => 'Kondisi tidak diketahui',
+            default =>
+                'Kondisi tidak diketahui',
         };
     }
 
