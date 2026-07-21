@@ -8,62 +8,94 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('news_cache', function (Blueprint $table) {
-            $table->id();
+        /*
+        |--------------------------------------------------------------------------
+        | News Cache
+        |--------------------------------------------------------------------------
+        |
+        | Pemeriksaan hasTable diperlukan agar migration tetap dapat dilanjutkan
+        | apabila deployment sebelumnya berhenti setelah tabel dibuat.
+        |
+        */
+        if (! Schema::hasTable('news_cache')) {
+            Schema::create('news_cache', function (Blueprint $table) {
+                $table->id();
 
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->longText('content')->nullable();
+                $table->string('title');
+                $table->text('description')->nullable();
+                $table->longText('content')->nullable();
 
-            $table->string('source_name')->nullable();
-            $table->text('url')->unique();
-            $table->text('image_url')->nullable();
+                $table->string('source_name')->nullable();
+                $table->text('url')->unique();
+                $table->text('image_url')->nullable();
 
-            $table->string('category')->default('supply_chain');
-            $table->timestamp('published_at')->nullable();
-            $table->timestamp('fetched_at')->nullable();
+                $table->string('category')->default('supply_chain');
+                $table->timestamp('published_at')->nullable();
+                $table->timestamp('fetched_at')->nullable();
 
-            $table->json('raw_response')->nullable();
+                $table->json('raw_response')->nullable();
 
-            $table->timestamps();
+                $table->timestamps();
 
-            $table->index('category');
-            $table->index('published_at');
-        });
+                $table->index('category');
+                $table->index('published_at');
+            });
+        }
 
-        Schema::create('positive_words', function (Blueprint $table) {
-            $table->id();
-            $table->string('word')->unique();
-            $table->timestamps();
-        });
+        /*
+        |--------------------------------------------------------------------------
+        | Positive Words
+        |--------------------------------------------------------------------------
+        */
+        if (! Schema::hasTable('positive_words')) {
+            Schema::create('positive_words', function (Blueprint $table) {
+                $table->id();
+                $table->string('word')->unique();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('negative_words', function (Blueprint $table) {
-            $table->id();
-            $table->string('word')->unique();
-            $table->timestamps();
-        });
+        /*
+        |--------------------------------------------------------------------------
+        | Negative Words
+        |--------------------------------------------------------------------------
+        */
+        if (! Schema::hasTable('negative_words')) {
+            Schema::create('negative_words', function (Blueprint $table) {
+                $table->id();
+                $table->string('word')->unique();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('sentiment_results', function (Blueprint $table) {
-            $table->id();
+        /*
+        |--------------------------------------------------------------------------
+        | Sentiment Results
+        |--------------------------------------------------------------------------
+        */
+        if (! Schema::hasTable('sentiment_results')) {
+            Schema::create('sentiment_results', function (Blueprint $table) {
+                $table->id();
 
-            $table->foreignId('news_article_id')
-                ->constrained('news_cache')
-                ->cascadeOnDelete();
+                $table->foreignId('news_article_id')
+                    ->constrained('news_cache')
+                    ->cascadeOnDelete();
 
-            $table->unsignedInteger('positive_score')->default(0);
-            $table->unsignedInteger('negative_score')->default(0);
-            $table->unsignedInteger('neutral_score')->default(0);
+                $table->unsignedInteger('positive_score')->default(0);
+                $table->unsignedInteger('negative_score')->default(0);
+                $table->unsignedInteger('neutral_score')->default(0);
 
-            $table->string('sentiment_label')->default('neutral');
+                $table->string('sentiment_label')->default('neutral');
 
-            $table->json('matched_positive_words')->nullable();
-            $table->json('matched_negative_words')->nullable();
+                $table->json('matched_positive_words')->nullable();
+                $table->json('matched_negative_words')->nullable();
 
-            $table->timestamps();
+                $table->timestamps();
 
-            $table->unique('news_article_id');
-            $table->index('sentiment_label');
-        });
+                $table->unique('news_article_id');
+                $table->index('sentiment_label');
+            });
+        }
     }
 
     public function down(): void
