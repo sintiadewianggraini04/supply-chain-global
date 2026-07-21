@@ -15,7 +15,7 @@ return Application::configure(
     )
     ->withMiddleware(
         function (Middleware $middleware): void {
-            //
+            $middleware->trustProxies(at: '*');
         }
     )
     ->withExceptions(
