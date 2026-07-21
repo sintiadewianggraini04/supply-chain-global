@@ -48,16 +48,18 @@ return [
     */
 
     'rest_countries' => [
-        'base_url' => env(
-            'REST_COUNTRIES_BASE_URL',
-            'https://restcountries.com/v3.1'
-        ),
+    'api_key' => env('REST_COUNTRIES_API_KEY'),
 
-        'timeout' => (int) env(
-            'REST_COUNTRIES_TIMEOUT',
-            15
-        ),
-    ],
+    'base_url' => env(
+        'REST_COUNTRIES_BASE_URL',
+        'https://api.restcountries.com/countries/v5'
+    ),
+
+    'timeout' => (int) env(
+        'REST_COUNTRIES_TIMEOUT',
+        60
+    ),
+],
 
     /*
     |--------------------------------------------------------------------------
